@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-esp-lp-hal = { version = "0.1.0", features = ["esp32c6", "embedded-hal-02"] }
+esp-lp-hal = { features = ["esp32c6", "embedded-hal-02"], path = "../../esp-hal/esp-lp-hal" }
 esp32c6-lp = { version = "0.3.0", features = ["critical-section"] }
 embedded-hal = { version = "0.2.7",   features = ["unproven"] }
-bme280 = { version = "0.3.0" }
+bme280 = { version = "0.5" }
 panic-halt = "0.2.0"
 
 [build-dependencies]
