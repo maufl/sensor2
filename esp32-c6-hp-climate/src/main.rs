@@ -6,15 +6,16 @@ use core::time::Duration;
 use bme280::i2c::BME280;
 use esp_backtrace as _;
 use esp_hal::{
-    clock::ClockControl,
     delay::Delay,
-    gpio::{lp_io::LowPowerOutputOpenDrain, Io},
-    i2c::{lp_i2c::LpI2c, I2C},
+    gpio::lp_io::LowPowerOutputOpenDrain,
+    i2c::{
+        lp_i2c::LpI2c,
+        master::{Config, I2c},
+    },
     lp_core::{LpCore, LpCoreWakeupSource},
     peripherals::Peripherals,
     prelude::*,
     rtc_cntl::{sleep::TimerWakeupSource, Rtc},
-    system::SystemControl,
 };
 use esp_println::{print, println};
 
@@ -31,7 +32,7 @@ const SHARED_MEMORY: u32 = 0x5000_2000;
 
 #[entry]
 fn main() -> ! {
-    let peripherals = Peripherals::take();
+    let peripherals = esp_hal::init(Default::default());
 
     if cfg!(feature = "lp") {
         read_with_lp(peripherals)
@@ -41,19 +42,17 @@ fn main() -> ! {
 }
 
 fn read_with_hp(peripherals: Peripherals) -> ! {
-    let system = SystemControl::new(peripherals.SYSTEM);
-    let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
-    let mut delay = Delay::new(&clocks);
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut delay = Delay::new();
 
-    let i2c = I2C::new(
+    let i2c = I2c::new(
         peripherals.I2C0,
-        io.pins.gpio6,
-        io.pins.gpio7,
-        100.kHz(),
-        &clocks,
-        None,
-    );
+        Config {
+            frequency: 100.kHz(),
+            timeout: None,
+        },
+    )
+    .with_sda(peripherals.GPIO6)
+    .with_scl(peripherals.GPIO7);
 
     let mut bme280 = BME280::new_primary(i2c);
     println!("Initializing sensor");
@@ -72,7 +71,7 @@ fn read_with_hp(peripherals: Peripherals) -> ! {
         delay.delay_millis(2_000);
     }
 
-    let mut rtc = Rtc::new(peripherals.LPWR, None);
+    let mut rtc = Rtc::new(peripherals.LPWR);
 
     let timer = TimerWakeupSource::new(Duration::from_secs(5));
     println!("sleeping!");
@@ -81,13 +80,10 @@ fn read_with_hp(peripherals: Peripherals) -> ! {
 }
 
 fn read_with_lp(peripherals: Peripherals) -> ! {
-    let system = SystemControl::new(peripherals.SYSTEM);
-    let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
-    let delay = Delay::new(&clocks);
+    let delay = Delay::new();
 
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let lp_sda = LowPowerOutputOpenDrain::new(io.pins.gpio6);
-    let lp_scl = LowPowerOutputOpenDrain::new(io.pins.gpio7);
+    let lp_sda = LowPowerOutputOpenDrain::new(peripherals.GPIO6);
+    let lp_scl = LowPowerOutputOpenDrain::new(peripherals.GPIO7);
 
     let lp_i2c = LpI2c::new(peripherals.LP_I2C0, lp_sda, lp_scl, 100.kHz());
 
