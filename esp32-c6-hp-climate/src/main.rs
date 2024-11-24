@@ -6,14 +6,15 @@ use core::time::Duration;
 use bme280::i2c::BME280;
 use esp_backtrace as _;
 use esp_hal::{
+    analog::adc::{Adc, AdcConfig, Attenuation},
     delay::Delay,
-    gpio::lp_io::LowPowerOutputOpenDrain,
+    gpio::{lp_io::LowPowerOutputOpenDrain, GpioPin},
     i2c::{
         lp_i2c::LpI2c,
         master::{Config, I2c},
     },
     lp_core::{LpCore, LpCoreWakeupSource},
-    peripherals::Peripherals,
+    peripherals::{Peripherals, ADC1},
     prelude::*,
     rtc_cntl::{sleep::TimerWakeupSource, Rtc},
 };
@@ -41,18 +42,35 @@ fn main() -> ! {
     }
 }
 
+fn read_battery_charge(analog_pin: GpioPin<2>, adc: ADC1) -> u16 {
+    let mut adc1_config = AdcConfig::new();
+    let mut pin = adc1_config.enable_pin(analog_pin, Attenuation::Attenuation2p5dB);
+    let mut adc1 = Adc::new(adc, adc1_config);
+
+    return nb::block!(adc1.read_oneshot(&mut pin)).unwrap();
+}
+
 fn read_with_hp(peripherals: Peripherals) -> ! {
+    let Peripherals {
+        LPWR,
+        I2C0,
+        ADC1,
+        GPIO2,
+        GPIO6,
+        GPIO7,
+        ..
+    } = peripherals;
     let mut delay = Delay::new();
 
     let i2c = I2c::new(
-        peripherals.I2C0,
+        I2C0,
         Config {
             frequency: 100.kHz(),
             timeout: None,
         },
     )
-    .with_sda(peripherals.GPIO6)
-    .with_scl(peripherals.GPIO7);
+    .with_sda(GPIO6)
+    .with_scl(GPIO7);
 
     let mut bme280 = BME280::new_primary(i2c);
     println!("Initializing sensor");
@@ -60,18 +78,19 @@ fn read_with_hp(peripherals: Peripherals) -> ! {
         println!("Error initializing sensor {:?}", e)
     };
     println!("Finished initializing sensor");
+    let battery_charge = read_battery_charge(GPIO2, ADC1);
     for _ in 0..10 {
         match bme280.measure(&mut delay) {
             Ok(m) => print!(
-                "Measured t:{} p:{} h:{}       \u{000d}",
-                m.temperature, m.pressure, m.humidity
+                "Measured t:{} p:{} h:{} b:{}      \u{000d}",
+                m.temperature, m.pressure, m.humidity, battery_charge
             ),
             Err(e) => println!("Error reading sensor {:?}", e),
         };
         delay.delay_millis(2_000);
     }
 
-    let mut rtc = Rtc::new(peripherals.LPWR);
+    let mut rtc = Rtc::new(LPWR);
 
     let timer = TimerWakeupSource::new(Duration::from_secs(5));
     println!("sleeping!");
