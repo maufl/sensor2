@@ -8,12 +8,13 @@
             "type": "probe-rs-debug",
             "request": "launch",
             "name": "probe-rs Test",
+            "runtimeExecutable": "/home/maufl/.cargo/bin/probe-rs",
             "cwd": "${workspaceFolder}",
             "connectUnderReset": true,
             "chip": "esp32c6",
             "flashingConfig": {
                 "flashingEnabled": true,
-                "haltAfterReset": true,
+                "haltAfterReset": false,
                 "formatOptions": {
                     "binaryFormat": "idf"
                 }
@@ -21,7 +22,7 @@
             "coreConfigs": [
                 {
                     "coreIndex": 0,
-                    "programBinary": "./esp32-c6-hp-climate/target/riscv32imac-unknown-none-elf/debug/${workspaceFolderBasename}"
+                    "programBinary": "./esp32-c6-hp-climate/target/riscv32imac-unknown-none-elf/release/esp32-c6-hp-climate"
                 }
             ]
         },

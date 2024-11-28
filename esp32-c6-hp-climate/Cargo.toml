@@ -4,10 +4,26 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-esp-backtrace = { version = "0.14", features = ["esp32c6", "exception-handler", "panic-handler", "println"] }
-esp-hal = { version = "0.22", features = ["esp32c6"] }
-esp-println = { version = "0.12", features = ["esp32c6", "log"] }
-bme280 = { version = "0.5" }
+esp-backtrace = { version = "0.14", features = ["esp32c6", "exception-handler", "panic-handler", "defmt"] }
+esp-hal = { version = "0.22", features = ["esp32c6", "defmt"] }
+esp-alloc = { version = "0.5" }
+esp-wifi = { version = "0.11", features = ["esp32c6", "ble", "defmt", ]}
+defmt = { version = "0.3.8" }
+bleps = { git = "https://github.com/bjoernQ/bleps.git", features = ["defmt"] }
+bme280 = { version = "0.5", features = ["with_defmt"] }
+defmt-rtt = "0.4"
 
 [features]
 lp = []
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false # <-
+incremental = false
+lto = 'fat'
+opt-level = 3            # <-
+overflow-checks = false  # <- 
+
+[profile.release.package.esp-wifi]
+opt-level = 3

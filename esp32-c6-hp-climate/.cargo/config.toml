@@ -1,9 +1,14 @@
+[env]
+DEFMT_LOG="info"
+
 [build]
 target = "riscv32imac-unknown-none-elf" # ESP32-C6
 
 [target.'cfg(target_arch = "riscv32")']
-runner    = "espflash flash --monitor"
+runner    = "probe-rs run --chip esp32c6"
 rustflags = [
   "-C", "link-arg=-Tlinkall.x",
   "-C", "force-frame-pointers",
+  "-C", "link-arg=--nmagic",
+  "-C", "link-arg=-Tdefmt.x",
 ]
