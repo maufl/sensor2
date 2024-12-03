@@ -1,5 +1,5 @@
 [env]
-DEFMT_LOG="info"
+DEFMT_LOG="debug"
 
 [build]
 target = "riscv32imac-unknown-none-elf" # ESP32-C6
