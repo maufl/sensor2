@@ -14,18 +14,30 @@ use bleps::{
 use bme280::i2c::BME280;
 use esp_backtrace as _;
 use esp_hal::{
-    analog::adc::{Adc, AdcConfig, Attenuation}, delay::Delay, gpio::{lp_io::LowPowerOutputOpenDrain, GpioPin}, i2c::{
+    analog::adc::{Adc, AdcConfig, Attenuation},
+    delay::Delay,
+    gpio::{lp_io::LowPowerOutputOpenDrain, GpioPin},
+    i2c::{
         lp_i2c::LpI2c,
         master::{Config, I2c},
-    }, lp_core::{LpCore, LpCoreWakeupSource}, peripherals::{Peripherals, ADC1, BT, I2C0, LPWR, LP_CORE, LP_I2C0}, prelude::*, reset::{wakeup_cause, SleepSource}, rng::Rng, rtc_cntl::{sleep::{TimerWakeupSource, WakeFromLpCoreWakeupSource}, Rtc}, timer::timg::TimerGroup
+    },
+    lp_core::{LpCore, LpCoreWakeupSource},
+    peripherals::{Peripherals, ADC1, BT, I2C0, LPWR, LP_CORE, LP_I2C0},
+    prelude::*,
+    reset::{wakeup_cause, SleepSource},
+    rng::Rng,
+    rtc_cntl::{
+        sleep::{TimerWakeupSource, WakeFromLpCoreWakeupSource},
+        Rtc,
+    },
+    timer::timg::TimerGroup,
 };
 use esp_wifi::{ble::controller::BleConnector, EspWifiController};
 
 use shared::{Measurement, MeasurmentBuffer, SHARED_MEMORY_ADDRESS};
 
-
 const DEEP_SLEEP_SECONDS: u64 = 6;
-const U12_MAX: u16 = 1 << 12 - 1;
+const U12_MAX: u16 = (1 << 12) - 1;
 
 #[entry]
 fn main() -> ! {
@@ -53,7 +65,7 @@ fn main() -> ! {
         ..
     } = peripherals;
 
-    let (raw_bat, battery_charge) = read_battery_charge(GPIO2, ADC1);
+    let battery_charge = read_battery_charge(GPIO2, ADC1);
 
     let measurement = if cfg!(feature = "lp") {
         if let SleepSource::Ulp = wakeup_cause() {
@@ -76,10 +88,10 @@ fn main() -> ! {
         Err(err) => {
             defmt::error!("Failed to initialize wifi: {}", err);
             loop {}
-        },
+        }
     };
 
-    sent_ble_advertisments(&wifi_controller, BT, &measurement, battery_charge, raw_bat);
+    sent_ble_advertisments(&wifi_controller, BT, &measurement, battery_charge);
 
     if let Err(err) = wifi_controller.deinit() {
         defmt::debug!("Error deinitializing wifi controller {:?}", err);
@@ -92,36 +104,37 @@ fn main() -> ! {
     }
 }
 
-fn read_battery_charge(analog_pin: GpioPin<2>, adc: ADC1) -> (u16, f32) {
+type AdcCal = esp_hal::analog::adc::AdcCalBasic<esp_hal::peripherals::ADC1>;
+
+fn read_battery_charge(analog_pin: GpioPin<2>, adc: ADC1) -> f32 {
     let mut adc1_config = AdcConfig::new();
     // At an attenuation of 2.5 dB the input voltage range that can be read is ~100mV-1250mV
     // The board contains an additional voltage devider with 1 MO - 4.7 MO
     // u12::max == 1250mV -> bat / u12::max * 1.25 * 5.7 ??
-    let mut pin = adc1_config.enable_pin(analog_pin, Attenuation::Attenuation2p5dB);
+    let mut pin =
+        adc1_config.enable_pin_with_cal::<_, AdcCal>(analog_pin, Attenuation::Attenuation2p5dB);
     let mut adc1 = Adc::new(adc, adc1_config);
     let bat = nb::block!(adc1.read_oneshot(&mut pin)).unwrap();
-    (bat, bat as f32 / U12_MAX as f32 * 1.25 * 5.7)
+    (bat as f32 / U12_MAX as f32) * 7.125
 }
 
 fn sent_ble_single_advertisment(
     ble: &mut Ble,
     measurement: &Measurement,
     battery_charge: f32,
-    raw_bat: u16,
 ) {
     let [t0, t1] = ((measurement.temperature * 100.0) as u16).to_le_bytes();
     let [h0, h1] = ((measurement.humidity * 100.0) as u16).to_le_bytes();
     // pressure doesn't have to be scaled since it's already in Pascal
     let [p0, p1, p2, _] = ((measurement.pressure) as u32).to_le_bytes();
     let [b0, b1] = ((battery_charge * 1000.0) as u16).to_le_bytes();
-    let [r0, r1] = raw_bat.to_le_bytes();
     let _ = ble.cmd_set_le_advertising_data(
         create_advertising_data(&[
             AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
             AdStructure::ServiceData16 {
                 uuid: 0xFCD2,
                 data: &[
-                    0x40, 0x02, t0, t1, 0x03, h0, h1, 0x04, p0, p1, p2, 0x0C, b0, b1, 0x3D, r0, r1,
+                    0x40, 0x02, t0, t1, 0x03, h0, h1, 0x04, p0, p1, p2, 0x0C, b0, b1,
                 ],
             },
             AdStructure::CompleteLocalName("esp32"),
@@ -177,7 +190,6 @@ fn sent_ble_advertisments<'d>(
     mut bt: BT,
     measurement: &Measurement,
     battery_charge: f32,
-    raw_bat: u16,
 ) {
     let delay = Delay::new();
     defmt::debug!("Setting up BLE connector");
@@ -191,7 +203,7 @@ fn sent_ble_advertisments<'d>(
     }
     let _ = ble.cmd_set_le_advertising_parameters();
 
-    sent_ble_single_advertisment(&mut ble, &measurement, battery_charge, raw_bat);
+    sent_ble_single_advertisment(&mut ble, &measurement, battery_charge);
     delay.delay_millis(100);
 
     if let Err(e) = ble.cmd_reset() {
