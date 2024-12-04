@@ -12,6 +12,7 @@ defmt = { version = "0.3.8" }
 bleps = { git = "https://github.com/bjoernQ/bleps.git", features = ["defmt"] }
 bme280 = { version = "0.5", features = ["with_defmt"] }
 defmt-rtt = "0.4"
+shared = { path = "../shared" }
 
 [features]
 lp = []

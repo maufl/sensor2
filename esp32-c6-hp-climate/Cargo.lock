@@ -635,6 +635,7 @@ dependencies = [
  "esp-backtrace",
  "esp-hal",
  "esp-wifi",
+ "shared",
 ]
 
 [[package]]
@@ -1192,6 +1193,10 @@ checksum = "87607cb1398ed59d48732e575a4c28a7a8ebf2454b964fe3f224f2afc07909e1"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
 
 [[package]]
 name = "smallvec"

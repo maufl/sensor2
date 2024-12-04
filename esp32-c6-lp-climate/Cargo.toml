@@ -9,6 +9,7 @@ esp32c6-lp = { version = "0.3.0", features = ["critical-section"] }
 embedded-hal = { version = "0.2.7",   features = ["unproven"] }
 bme280 = { version = "0.3" }
 panic-halt = "0.2.0"
+shared = { path = "../shared" }
 
 [build-dependencies]
 esp-build = { version = "0.1.0" }

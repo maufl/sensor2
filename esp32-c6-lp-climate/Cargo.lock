@@ -155,6 +155,7 @@ dependencies = [
  "esp-lp-hal",
  "esp32c6-lp",
  "panic-halt",
+ "shared",
 ]
 
 [[package]]
@@ -297,6 +298,10 @@ dependencies = [
  "critical-section",
  "embedded-hal 1.0.0",
 ]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
 
 [[package]]
 name = "strsim"
