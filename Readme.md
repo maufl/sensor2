@@ -13,3 +13,6 @@ Using an small LiPo battery with 700mAh it should last at least a year.
 
 There is an (even more) experimental feature of doing the measurements using the low power core that is not working yet. 
 The idea would be to measure with a higher frequency than send measurements with a lower frequency, thus saving power.
+
+## License
+All hardware is licensed under CERN OHL S 2.0 and all software is licensed under GNU GPLv3.
