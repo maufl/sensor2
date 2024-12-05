@@ -36,7 +36,7 @@ use esp_wifi::{ble::controller::BleConnector, EspWifiController};
 
 use shared::{Measurement, MeasurmentBuffer, SHARED_MEMORY_ADDRESS};
 
-const DEEP_SLEEP_SECONDS: u64 = 6;
+const DEEP_SLEEP_SECONDS: u64 = 10 * 60;
 const U12_MAX: u16 = (1 << 12) - 1;
 
 #[entry]
