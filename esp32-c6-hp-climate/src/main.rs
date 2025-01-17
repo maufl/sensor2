@@ -14,23 +14,13 @@ use bleps::{
 use bme280::i2c::BME280;
 use esp_backtrace as _;
 use esp_hal::{
-    analog::adc::{Adc, AdcConfig, Attenuation},
-    delay::Delay,
-    gpio::{lp_io::LowPowerOutputOpenDrain, GpioPin},
-    i2c::{
+    analog::adc::{Adc, AdcConfig, Attenuation}, clock::CpuClock, delay::Delay, gpio::{lp_io::LowPowerOutputOpenDrain, GpioPin}, i2c::{
         lp_i2c::LpI2c,
         master::{Config, I2c},
-    },
-    lp_core::{LpCore, LpCoreWakeupSource},
-    peripherals::{Peripherals, ADC1, BT, I2C0, LPWR, LP_CORE, LP_I2C0},
-    prelude::*,
-    reset::{wakeup_cause, SleepSource},
-    rng::Rng,
-    rtc_cntl::{
+    }, load_lp_code, lp_core::{LpCore, LpCoreWakeupSource}, main, peripherals::{Peripherals, ADC1, BT, I2C0, LPWR, LP_CORE, LP_I2C0}, reset::{wakeup_cause, SleepSource}, rng::Rng, rtc_cntl::{
         sleep::{TimerWakeupSource, WakeFromLpCoreWakeupSource},
         Rtc,
-    },
-    timer::timg::TimerGroup,
+    }, time::RateExtU32, timer::timg::TimerGroup
 };
 use esp_wifi::{ble::controller::BleConnector, EspWifiController};
 
@@ -39,15 +29,16 @@ use shared::{Measurement, MeasurmentBuffer, SHARED_MEMORY_ADDRESS};
 const DEEP_SLEEP_SECONDS: u64 = 10 * 60;
 const U12_MAX: u16 = (1 << 12) - 1;
 
-#[entry]
+#[main]
 fn main() -> ! {
     defmt::info!("Starting up");
 
-    let mut config = esp_hal::Config::default();
-    config.cpu_clock = CpuClock::Clock80MHz;
+    let mut config = esp_hal::Config::default().with_cpu_clock(CpuClock::_80MHz);
     let peripherals = esp_hal::init(config);
 
-    esp_alloc::heap_allocator!(72 * 1024);
+    defmt::info!("Allocating heap");
+
+    esp_alloc::heap_allocator!(144 * 1024);
 
     let Peripherals {
         LPWR,
@@ -112,9 +103,9 @@ fn read_battery_charge(analog_pin: GpioPin<2>, adc: ADC1) -> f32 {
     // The board contains an additional voltage devider with 1 MO - 4.7 MO
     // u12::max == 1250mV -> bat / u12::max * 1.25 * 5.7 ??
     let mut pin =
-        adc1_config.enable_pin_with_cal::<_, AdcCal>(analog_pin, Attenuation::Attenuation2p5dB);
+        adc1_config.enable_pin_with_cal::<_, AdcCal>(analog_pin, Attenuation::_2p5dB);
     let mut adc1 = Adc::new(adc, adc1_config);
-    let bat = nb::block!(adc1.read_oneshot(&mut pin)).unwrap();
+    let bat = adc1.read_oneshot(&mut pin).unwrap();
     (bat as f32 / U12_MAX as f32) * 7.125
 }
 
@@ -152,11 +143,8 @@ fn measure_climate(
     let mut delay = Delay::new();
     let i2c = I2c::new(
         i2c0,
-        Config {
-            frequency: 100.kHz(),
-            timeout: None,
-        },
-    )
+        Config::default().with_frequency(100_u32.kHz())
+    ).unwrap()
     .with_sda(gpio06)
     .with_scl(gpio07);
 
@@ -215,7 +203,7 @@ fn start_lp_core(gpio06: GpioPin<6>, gpio07: GpioPin<7>, lp_i2c: LP_I2C0, lp_cor
     let lp_sda = LowPowerOutputOpenDrain::new(gpio06);
     let lp_scl = LowPowerOutputOpenDrain::new(gpio07);
 
-    let lp_i2c = LpI2c::new(lp_i2c, lp_sda, lp_scl, 100.kHz());
+    let lp_i2c = LpI2c::new(lp_i2c, lp_sda, lp_scl, 100_u32.kHz());
 
     let mut lp_core = LpCore::new(lp_core);
 

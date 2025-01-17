@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 esp-backtrace = { version = "0.14", features = ["esp32c6", "exception-handler", "panic-handler", "defmt"] }
-esp-hal = { version = "0.22", features = ["esp32c6", "defmt"] }
-esp-alloc = { version = "0.5" }
-esp-wifi = { version = "0.11", features = ["esp32c6", "ble", "defmt", ]}
+esp-hal = { version = "0.23.1", features = ["esp32c6", "defmt"] }
+esp-alloc = { version = "0.6" }
+esp-wifi = { version = "0.12", default-features = false, features = ["esp32c6", "esp-alloc", "ble", "defmt" ]}
 defmt = { version = "0.3.8" }
 bleps = { git = "https://github.com/bjoernQ/bleps.git", features = ["defmt"] }
 bme280 = { version = "0.5", features = ["with_defmt"] }
